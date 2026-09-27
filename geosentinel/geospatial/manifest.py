@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any
+import json
 
 import rasterio
 
@@ -9,16 +10,6 @@ def build_tile_manifest(
 ) -> list[dict[str, Any]]:
     """
     Build a manifest containing metadata for every GeoTIFF tile.
-
-    Parameters
-    ----------
-    tiles_dir:
-        Directory containing generated GeoTIFF tiles.
-
-    Returns
-    -------
-    list[dict[str, Any]]
-        Metadata for each tile.
     """
 
     tiles_dir = Path(tiles_dir)
@@ -46,18 +37,39 @@ def build_tile_manifest(
                     "height": src.height,
                     "bands": src.count,
                     "crs": str(src.crs) if src.crs else None,
-                    "resolution": src.res,
+                    "resolution": list(src.res),
                     "bounds": {
                         "left": src.bounds.left,
                         "bottom": src.bounds.bottom,
                         "right": src.bounds.right,
                         "top": src.bounds.top,
                     },
-                    "dtype": src.dtypes,
-                    "transform": tuple(src.transform),
+                    "dtype": list(src.dtypes),
+                    "transform": list(src.transform),
                     "nodata": src.nodata,
                     "driver": src.driver,
                 }
             )
 
     return manifest
+
+
+def save_manifest(
+    manifest: list[dict[str, Any]],
+    output_path: str | Path,
+) -> Path:
+    """
+    Save a tile manifest to a JSON file.
+    """
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with output_path.open("w", encoding="utf-8") as file:
+        json.dump(
+            manifest,
+            file,
+            indent=2,
+        )
+
+    return output_path
