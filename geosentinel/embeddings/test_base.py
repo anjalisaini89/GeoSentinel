@@ -105,4 +105,4 @@ def test_invalid_embedding_dimension():
     ):
         DummyEmbedder(
             embedding_dimension=0
-        )s
+        )
