@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Pytest
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Generated data
+data/processed/
+data/tiles/
+
+# Large/raw satellite data
+data/raw/
+
+# Model checkpoints
+models/*
+
+# Keep model directories
+!models/prithvi/
+!models/remoteclip/
+
+# OS
+.DS_Store
+Thumbs.db
