@@ -39,3 +39,5 @@ models/*
 # OS
 .DS_Store
 Thumbs.db
+# RemoteCLIP model checkpoint
+models/remoteclip/*.pt
