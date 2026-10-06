@@ -10,10 +10,10 @@ from geosentinel.embeddings.base import ImageEmbedder
 
 class RemoteCLIPEmbedder(ImageEmbedder):
     """
-    RemoteCLIP image embedder for satellite imagery.
+    RemoteCLIP ViT-B/32 image embedder.
 
-    The model runs locally using a downloaded RemoteCLIP
-    ViT-B/32 checkpoint.
+    Uses the locally downloaded RemoteCLIP checkpoint and
+    produces normalized 512-dimensional embeddings.
     """
 
     def __init__(
@@ -23,7 +23,7 @@ class RemoteCLIPEmbedder(ImageEmbedder):
     ):
         self.checkpoint_path = Path(checkpoint_path)
 
-        if not self.checkpoint_path.exists():
+        if not self.checkpoint_path.is_file():
             raise FileNotFoundError(
                 f"RemoteCLIP checkpoint not found: "
                 f"{self.checkpoint_path}"
@@ -33,24 +33,50 @@ class RemoteCLIPEmbedder(ImageEmbedder):
             "cuda" if torch.cuda.is_available() else "cpu"
         )
 
-        self.model, _, self.preprocess = open_clip.create_model_and_transforms(
+        # Create the OpenAI-compatible ViT-B/32 architecture.
+        self.model = open_clip.create_model(
             "ViT-B-32",
-            pretrained=None,
+            pretrained="openai",
+            device=self.device,
         )
 
+        # Load the RemoteCLIP checkpoint.
         checkpoint = torch.load(
             self.checkpoint_path,
             map_location=self.device,
             weights_only=False,
         )
 
-        if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-            checkpoint = checkpoint["state_dict"]
+        if not isinstance(checkpoint, dict):
+            raise TypeError(
+                "RemoteCLIP checkpoint must contain a state dictionary."
+            )
 
-        self.model.load_state_dict(checkpoint, strict=False)
+        missing_keys, unexpected_keys = self.model.load_state_dict(
+            checkpoint,
+            strict=False,
+        )
+
+        if missing_keys:
+            raise RuntimeError(
+                "RemoteCLIP checkpoint is missing model keys: "
+                f"{missing_keys[:10]}"
+            )
+
+        if unexpected_keys:
+            raise RuntimeError(
+                "RemoteCLIP checkpoint contains unexpected keys: "
+                f"{unexpected_keys[:10]}"
+            )
 
         self.model = self.model.to(self.device)
         self.model.eval()
+
+        # Use the preprocessing pipeline associated with ViT-B/32.
+        _, _, self.preprocess = open_clip.create_model_and_transforms(
+            "ViT-B-32",
+            pretrained="openai",
+        )
 
     @property
     def embedding_dimension(self) -> int:
@@ -60,6 +86,17 @@ class RemoteCLIPEmbedder(ImageEmbedder):
     def embed(self, image: np.ndarray) -> np.ndarray:
         """
         Generate a RemoteCLIP embedding from a CHW NumPy image.
+
+        Parameters
+        ----------
+        image:
+            Image array in CHW format with 3 channels.
+            Values are expected to be in [0, 1].
+
+        Returns
+        -------
+        np.ndarray
+            L2-normalized 512-dimensional embedding.
         """
 
         if not isinstance(image, np.ndarray):
@@ -83,28 +120,40 @@ class RemoteCLIPEmbedder(ImageEmbedder):
             raise TypeError("Image must contain numeric values.")
 
         image = np.asarray(image, dtype=np.float32)
-
-        # Expected input range is [0, 1].
         image = np.clip(image, 0.0, 1.0)
 
         # CHW -> HWC.
         image = np.transpose(image, (1, 2, 0))
 
-        # Float [0, 1] -> uint8 [0, 255].
-        image_uint8 = (image * 255.0).round().astype(np.uint8)
+        # [0, 1] -> [0, 255].
+        image_uint8 = (
+            image * 255.0
+        ).round().astype(np.uint8)
 
-        pil_image = Image.fromarray(image_uint8, mode="RGB")
+        pil_image = Image.fromarray(
+            image_uint8,
+            mode="RGB",
+        )
 
-        input_tensor = self.preprocess(pil_image).unsqueeze(0)
-        input_tensor = input_tensor.to(self.device)
+        input_tensor = self.preprocess(
+            pil_image
+        ).unsqueeze(0).to(self.device)
 
         with torch.inference_mode():
-            embedding = self.model.encode_image(input_tensor)
+            embedding = self.model.encode_image(
+                input_tensor
+            )
 
-        # L2 normalization is standard for CLIP-style embeddings.
+        # L2-normalize for cosine-similarity retrieval.
         embedding = embedding / embedding.norm(
             dim=-1,
             keepdim=True,
         )
 
-        return embedding.squeeze(0).cpu().numpy().astype(np.float32)
+        return (
+            embedding
+            .squeeze(0)
+            .cpu()
+            .numpy()
+            .astype(np.float32)
+        )
