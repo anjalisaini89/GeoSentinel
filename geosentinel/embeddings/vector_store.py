@@ -2,7 +2,11 @@ from pathlib import Path
 
 import numpy as np
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    PointStruct,
+    VectorParams,
+)
 
 
 class QdrantVectorStore:
@@ -117,3 +121,65 @@ class QdrantVectorStore:
         )
 
         return result.count
+
+    def search(
+        self,
+        embedding: np.ndarray,
+        limit: int = 5,
+    ) -> list:
+        """
+        Find the most similar stored embeddings.
+
+        Parameters
+        ----------
+        embedding:
+            Query embedding as a 1D NumPy array.
+
+        limit:
+            Maximum number of results.
+
+        Returns
+        -------
+        list
+            Qdrant search results ordered by similarity.
+        """
+
+        if not isinstance(embedding, np.ndarray):
+            raise TypeError(
+                "embedding must be a NumPy array."
+            )
+
+        if embedding.ndim != 1:
+            raise ValueError(
+                "embedding must be a 1D vector."
+            )
+
+        if embedding.shape[0] != self.vector_size:
+            raise ValueError(
+                f"Expected embedding dimension "
+                f"{self.vector_size}, "
+                f"got {embedding.shape[0]}."
+            )
+
+        if limit <= 0:
+            raise ValueError(
+                "limit must be greater than zero."
+            )
+
+        vector = embedding.astype(
+            np.float32
+        ).tolist()
+
+        results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=vector,
+            limit=limit,
+            with_payload=True,
+        )
+
+        return results.points
+
+    def close(self) -> None:
+        """Close the local Qdrant client."""
+
+        self.client.close()
