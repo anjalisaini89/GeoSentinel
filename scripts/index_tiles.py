@@ -1,53 +1,67 @@
 
+import json
 from pathlib import Path
+from typing import Any
 
-from geosentinel.embeddings.indexing import index_tiles
+from geosentinel.embeddings.pipeline import generate_embedding
 from geosentinel.embeddings.remoteclip import RemoteCLIPEmbedder
 from geosentinel.embeddings.vector_store import QdrantVectorStore
 
 
-def main() -> None:
-    project_root = Path.cwd()
+def index_tiles(
+    manifest_path: str | Path,
+    embedder: RemoteCLIPEmbedder,
+    store: QdrantVectorStore,
+) -> int:
+    """Generate embeddings for manifest tiles and index them in Qdrant."""
 
-    checkpoint = (
-        project_root
-        / "models"
-        / "remoteclip"
-        / "RemoteCLIP-ViT-B-32.pt"
-    )
+    manifest_path = Path(manifest_path)
 
-    manifest = (
-        project_root
-        / "data"
-        / "processed"
-        / "manifest.json"
-    )
-
-    embedder = RemoteCLIPEmbedder(
-        checkpoint_path=checkpoint,
-    )
-
-    store = QdrantVectorStore(
-        storage_path=project_root / "data" / "qdrant",
-        collection_name="satellite_tiles",
-        vector_size=512,
-    )
-
-    try:
-        print("Starting GeoSentinel tile indexing...")
-
-        indexed = index_tiles(
-            manifest_path=manifest,
-            embedder=embedder,
-            store=store,
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            f"Manifest not found: {manifest_path}"
         )
 
-        print(f"Tiles processed: {indexed}")
-        print(f"Total vectors in Qdrant: {store.count()}")
+    with manifest_path.open("r", encoding="utf-8") as file:
+        manifest: list[dict[str, Any]] = json.load(file)
 
-    finally:
-        store.close()
+    if not isinstance(manifest, list):
+        raise ValueError(
+            "Manifest must contain a JSON list of tiles."
+        )
 
+    indexed = 0
 
-if __name__ == "__main__":
-    main()
+    for tile in manifest:
+        tile_path = Path(tile["path"])
+
+        if not tile_path.is_absolute():
+            tile_path = Path.cwd() / tile_path
+
+        if not tile_path.is_file():
+            raise FileNotFoundError(
+                f"Tile not found: {tile_path}"
+            )
+
+        embedding = generate_embedding(
+            file_path=tile_path,
+            embedder=embedder,
+            expected_bands=3,
+        )
+
+        metadata = {
+            key: value
+            for key, value in tile.items()
+            if key != "path"
+        }
+        metadata["path"] = str(tile_path.resolve())
+
+        store.add_embedding(
+            point_id=indexed + 1,
+            embedding=embedding,
+            metadata=metadata,
+        )
+
+        indexed += 1
+
+    return indexed
