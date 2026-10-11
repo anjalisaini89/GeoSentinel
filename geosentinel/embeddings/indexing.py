@@ -38,10 +38,15 @@ def index_tiles(
     indexed = 0
 
     for tile in manifest:
-        tile_path = Path(tile["path"])
+               tile_path = Path(tile["path"])
 
         if not tile_path.is_absolute():
-            tile_path = manifest_path.parent / tile_path
+            tile_path = Path.cwd() / tile_path
+
+        if not tile_path.is_file():
+            raise FileNotFoundError(
+                f"Tile not found: {tile_path}"
+            )
 
         embedding = generate_embedding(
             file_path=tile_path,
