@@ -13,40 +13,29 @@ def index_tiles(
     embedder: RemoteCLIPEmbedder,
     store: QdrantVectorStore,
 ) -> int:
-    """
-    Generate RemoteCLIP embeddings for manifest tiles
-    and index them in Qdrant.
-
-    Returns the number of tiles indexed.
-    """
+    """Generate embeddings for manifest tiles and index them."""
 
     manifest_path = Path(manifest_path)
 
     if not manifest_path.is_file():
-        raise FileNotFoundError(
-            f"Manifest not found: {manifest_path}"
-        )
+        raise FileNotFoundError(f"Manifest not found: {manifest_path}")
 
     with manifest_path.open("r", encoding="utf-8") as file:
         manifest: list[dict[str, Any]] = json.load(file)
 
     if not isinstance(manifest, list):
-        raise ValueError(
-            "Manifest must contain a JSON list of tiles."
-        )
+        raise ValueError("Manifest must contain a JSON list of tiles.")
 
     indexed = 0
 
     for tile in manifest:
-               tile_path = Path(tile["path"])
+        tile_path = Path(tile["path"])
 
         if not tile_path.is_absolute():
             tile_path = Path.cwd() / tile_path
 
         if not tile_path.is_file():
-            raise FileNotFoundError(
-                f"Tile not found: {tile_path}"
-            )
+            raise FileNotFoundError(f"Tile not found: {tile_path}")
 
         embedding = generate_embedding(
             file_path=tile_path,
