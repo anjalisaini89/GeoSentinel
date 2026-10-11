@@ -40,7 +40,7 @@ def index_tiles(
 
         if not tile_path.is_file():
             raise FileNotFoundError(
-                f"Tile not found: {tile_path}"
+            f"Tile not found: {tile_path}"
             )
 
         embedding = generate_embedding(
