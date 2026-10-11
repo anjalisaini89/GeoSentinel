@@ -1,67 +1,45 @@
 
-import json
+import sys
 from pathlib import Path
-from typing import Any
 
-from geosentinel.embeddings.pipeline import generate_embedding
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from geosentinel.embeddings.indexing import index_tiles
 from geosentinel.embeddings.remoteclip import RemoteCLIPEmbedder
 from geosentinel.embeddings.vector_store import QdrantVectorStore
 
 
-def index_tiles(
-    manifest_path: str | Path,
-    embedder: RemoteCLIPEmbedder,
-    store: QdrantVectorStore,
-) -> int:
-    """Generate embeddings for manifest tiles and index them in Qdrant."""
+def main() -> None:
+    project_root = Path(__file__).resolve().parents[1]
 
-    manifest_path = Path(manifest_path)
+    checkpoint = (
+        project_root / "models" / "remoteclip" / "RemoteCLIP-ViT-B-32.pt"
+    )
+    manifest = project_root / "data" / "processed" / "manifest.json"
 
-    if not manifest_path.is_file():
-        raise FileNotFoundError(
-            f"Manifest not found: {manifest_path}"
-        )
+    embedder = RemoteCLIPEmbedder(checkpoint_path=checkpoint)
 
-    with manifest_path.open("r", encoding="utf-8") as file:
-        manifest: list[dict[str, Any]] = json.load(file)
+    store = QdrantVectorStore(
+        storage_path=project_root / "data" / "qdrant",
+        collection_name="satellite_tiles",
+        vector_size=512,
+    )
 
-    if not isinstance(manifest, list):
-        raise ValueError(
-            "Manifest must contain a JSON list of tiles."
-        )
+    try:
+        print("Starting GeoSentinel tile indexing...")
 
-    indexed = 0
-
-    for tile in manifest:
-        tile_path = Path(tile["path"])
-
-        if not tile_path.is_absolute():
-            tile_path = Path.cwd() / tile_path
-
-        if not tile_path.is_file():
-            raise FileNotFoundError(
-            f"Tile not found: {tile_path}"
-            )
-
-        embedding = generate_embedding(
-            file_path=tile_path,
+        indexed = index_tiles(
+            manifest_path=manifest,
             embedder=embedder,
-            expected_bands=3,
+            store=store,
         )
 
-        metadata = {
-            key: value
-            for key, value in tile.items()
-            if key != "path"
-        }
-        metadata["path"] = str(tile_path.resolve())
+        print(f"Tiles processed: {indexed}")
+        print(f"Total vectors in Qdrant: {store.count()}")
 
-        store.add_embedding(
-            point_id=indexed + 1,
-            embedding=embedding,
-            metadata=metadata,
-        )
+    finally:
+        store.close()
 
-        indexed += 1
 
-    return indexed
+if __name__ == "__main__":
+    main()
