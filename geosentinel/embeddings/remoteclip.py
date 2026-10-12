@@ -157,3 +157,30 @@ class RemoteCLIPEmbedder(ImageEmbedder):
             .numpy()
             .astype(np.float32)
         )
+    
+    def embed_text(self, text: str) -> np.ndarray:
+        """Generate a normalized 512-dimensional text embedding."""
+
+        if not isinstance(text, str):
+            raise TypeError("text must be a string.")
+
+        if not text.strip():
+            raise ValueError("text cannot be empty.")
+
+        tokens = self.tokenizer([text]).to(self.device)
+
+        with torch.inference_mode():
+            embedding = self.model.encode_text(tokens)
+
+        embedding = embedding / embedding.norm(
+            dim=-1,
+            keepdim=True,
+        )
+
+        return (
+            embedding
+            .squeeze(0)
+            .cpu()
+            .numpy()
+            .astype(np.float32)
+        )
