@@ -74,11 +74,7 @@ class RemoteCLIPEmbedder(ImageEmbedder):
         self.model = self.model.to(self.device)
         self.model.eval()
         self.tokenizer = open_clip.get_tokenizer("ViT-B-32")
-        # Use the preprocessing pipeline associated with ViT-B/32.
-        _, _, self.preprocess = open_clip.create_model_and_transforms(
-            "ViT-B-32",
-            pretrained="openai",
-        )
+    
 
     @property
     def embedding_dimension(self) -> int:
