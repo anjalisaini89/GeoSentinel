@@ -34,11 +34,13 @@ class RemoteCLIPEmbedder(ImageEmbedder):
         )
 
         # Create the OpenAI-compatible ViT-B/32 architecture.
-        self.model = open_clip.create_model(
-            "ViT-B-32",
-            pretrained="openai",
-            device=self.device,
-        )
+        self.model, _, self.preprocess = (
+    open_clip.create_model_and_transforms(
+        "ViT-B-32",
+        pretrained=None,
+        device=self.device,
+    )
+)
 
         # Load the RemoteCLIP checkpoint.
         checkpoint = torch.load(
