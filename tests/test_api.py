@@ -112,4 +112,3 @@ def test_search_rejects_invalid_limit(client, limit):
     )
 
     assert response.status_code == 422
-as
