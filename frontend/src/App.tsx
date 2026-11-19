@@ -1,6 +1,6 @@
-
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import maplibregl, { Marker } from 'maplibre-gl'
 import {
   Activity,
   ArrowUpRight,
@@ -9,7 +9,6 @@ import {
   Globe2,
   Layers3,
   Map as MapIcon,
-  Menu,
   Search,
   Settings2,
   ShieldCheck,
