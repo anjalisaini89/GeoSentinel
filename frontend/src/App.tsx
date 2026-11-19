@@ -186,7 +186,7 @@ function App() {
     }
   }, [])
 
-  const runSearch = async (event?: React.FormEvent) => {
+  const runSearch = async (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault()
 
     if (!query.trim()) {
