@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react'
-import maplibregl, { Marker } from 'maplibre-gl'
+import type { FormEvent } from 'react'
 import {
   Activity,
   ArrowUpRight,
