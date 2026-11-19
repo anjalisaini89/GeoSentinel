@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import maplibregl, { Marker } from 'maplibre-gl'
+import {
+  Map as MapLibreMap,
+  Marker,
+  NavigationControl,
+  Popup,
+  LngLatBounds,
+} from 'maplibre-gl'
 import {
   Activity,
   ArrowUpRight,
@@ -59,13 +65,13 @@ type HealthResponse = {
 
 function GeoMap({ results }: { results: SearchResult[] }) {
   const mapContainer = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<maplibregl.Map | null>(null)
+  const mapRef = useRef<MapLibreMap | null>(null)
   const markersRef = useRef<Marker[]>([])
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return
 
-    const map = new maplibregl.Map({
+    const map = new MapLibreMap({
       container: mapContainer.current,
       style: {
         version: 8,
@@ -89,7 +95,7 @@ function GeoMap({ results }: { results: SearchResult[] }) {
       zoom: 11,
     })
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-right')
+    map.addControl(new NavigationControl(), 'top-right')
     mapRef.current = map
 
     return () => {
@@ -114,13 +120,13 @@ function GeoMap({ results }: { results: SearchResult[] }) {
       element.className = 'map-marker'
       element.textContent = String(index + 1)
 
-      const marker = new maplibregl.Marker({ element })
+      const marker = new Marker({ element })
         .setLngLat([
           result.center!.longitude,
           result.center!.latitude,
         ])
         .setPopup(
-          new maplibregl.Popup({ offset: 20 }).setHTML(
+          new Popup({ offset: 20 }).setHTML(
             `<strong>${result.tile_id}</strong><br/>Similarity: ${(result.score * 100).toFixed(1)}%`,
           ),
         )
@@ -130,7 +136,7 @@ function GeoMap({ results }: { results: SearchResult[] }) {
     })
 
     if (locatedResults.length > 0) {
-      const bounds = new maplibregl.LngLatBounds()
+      const bounds = new LngLatBounds()
 
       locatedResults.forEach((result) => {
         bounds.extend([
